@@ -33,8 +33,11 @@ if df["Body_Temp"].max() > 45:  # Simple check: if temps are too high, likely in
 else:
     df["Body_Temp_C"] = df["Body_Temp"]
 
+# ✅ Convert Gender to numeric (male=1, female=0)
+df["Gender"] = df["Gender"].astype(str).str.lower().map(lambda s: 1 if s.startswith("m") else 0)
+
 # Features and target
-X = df[["Age", "Height_cm", "Weight_kg", "Duration_min", "Heart_Rate", "Body_Temp_C"]]
+X = df[["Gender", "Age", "Height_cm", "Weight_kg", "Duration_min", "Heart_Rate", "Body_Temp_C"]]
 y = df["Calories"]
 
 # Split

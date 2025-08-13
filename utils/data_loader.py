@@ -6,8 +6,13 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 
-ROOT = Path(__file__).resolve().parents[1]  # project root /calorie_burn_prediction
+# More robust path calculation
+ROOT = Path(__file__).resolve().parents[1]  # project root /calories_prediction
 DATA_DIR = ROOT / "data"
+
+# Fallback: if the above doesn't work, try relative to current working directory
+if not DATA_DIR.exists():
+    DATA_DIR = Path("data")
 
 EXERCISE_CSV = DATA_DIR / "exercise.csv"
 CALORIES_CSV = DATA_DIR / "calories.csv"
@@ -53,6 +58,7 @@ def merge_datasets(exercise_df: pd.DataFrame, calories_df: pd.DataFrame) -> pd.D
         "Duration": "Duration_min",
         "Duration_min": "Duration_min",
         "duration_min": "Duration_min",
+        "Body_Temp": "Body_Temp_C",
         "Body_Temperature": "Body_Temp_C",
         "Body_Temp_C": "Body_Temp_C",
         "BodyTemp": "Body_Temp_C",
