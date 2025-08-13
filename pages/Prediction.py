@@ -53,8 +53,61 @@ if MODEL_PATH.exists():
         st.warning(f"⚠️ Could not load existing model: {e}")
         model_loaded = False
 else:
-    st.info("ℹ️ No pre-trained model found. Please run 'py train_models.py' in PowerShell first.")
-    st.stop()
+    st.info("ℹ️ No pre-trained model found! Training models automatically...")
+    
+    # Auto-train models with caching
+    @st.cache_data(ttl=3600)  # Cache for 1 hour
+    def train_prediction_model():
+        try:
+            # Load and prepare data
+            ex_df, cal_df = load_raw()
+            merged_df = merge_datasets(ex_df, cal_df)
+            
+            # Prepare features and target
+            features = ["Gender", "Age", "Height_cm", "Weight_kg", "Duration_min", "Heart_Rate", "Body_Temp_C"]
+            X = merged_df[features]
+            y = merged_df["Calories"]
+            
+            # Split data
+            from sklearn.model_selection import train_test_split
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            
+            # Import and train best model (Random Forest for good performance)
+            from sklearn.ensemble import RandomForestRegressor
+            from sklearn.metrics import mean_absolute_error, r2_score
+            
+            model = RandomForestRegressor(n_estimators=50, random_state=42)
+            model.fit(X_train, y_train)
+            
+            # Evaluate
+            y_pred = model.predict(X_test)
+            mae = mean_absolute_error(y_test, y_pred)
+            r2 = r2_score(y_test, y_pred)
+            
+            # Save model
+            os.makedirs("models", exist_ok=True)
+            joblib.dump(model, MODEL_PATH)
+            
+            st.success(f"✅ Model trained successfully!")
+            st.metric("Mean Absolute Error", f"{mae:.2f} calories")
+            st.metric("R² Score", f"{r2:.3f}")
+            
+            return model
+            
+        except Exception as e:
+            st.error(f"❌ Error training model: {e}")
+            return None
+    
+    # Call cached training function
+    with st.spinner("🚀 Training prediction model... This may take a moment (cached for future use)..."):
+        model = train_prediction_model()
+        
+    if model is not None:
+        model_loaded = True
+        st.success("🎉 Prediction model ready!")
+    else:
+        st.error("❌ Failed to train model. Please check your data files.")
+        st.stop()
 
 # Load data for visualizations
 try:

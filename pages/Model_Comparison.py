@@ -40,23 +40,115 @@ if not PLOTLY_AVAILABLE:
     st.info("Basic model comparison information will be shown here once Plotly is installed.")
     st.stop()
 
-# Load data for visualizations
-try:
-    ex_df, cal_df = load_raw()
-    merged_df = merge_datasets(ex_df, cal_df)
-    st.success("✅ Data loaded successfully for visualizations!")
-except Exception as e:
-    st.error(f"❌ Error loading data: {e}")
-    st.stop()
-
 # Check for trained models
 models_dir = Path("models")
 model_files = list(models_dir.glob("*.pkl")) if models_dir.exists() else []
 
 if not model_files:
-    st.warning("⚠️ No trained models found! Please run 'py train_models.py' in PowerShell first.")
-    st.info("💡 The training script will create models in the 'models/' directory.")
-    st.stop()
+    st.warning("⚠️ No trained models found! Training models automatically...")
+    
+    # Auto-train models with caching
+    @st.cache_data(ttl=3600)  # Cache for 1 hour
+    def train_models_cached():
+        try:
+            # Load and prepare data
+            ex_df, cal_df = load_raw()
+            merged_df = merge_datasets(ex_df, cal_df)
+            
+            # Prepare features and target
+            features = ["Gender", "Age", "Height_cm", "Weight_kg", "Duration_min", "Heart_Rate", "Body_Temp_C"]
+            X = merged_df[features]
+            y = merged_df["Calories"]
+            
+            # Split data
+            from sklearn.model_selection import train_test_split, cross_val_score
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            
+            # Import models
+            from sklearn.linear_model import LinearRegression
+            from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+            from sklearn.svm import SVR
+            from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+            
+            # Define models (reduced complexity for speed)
+            models = {
+                "Linear Regression": LinearRegression(),
+                "Random Forest": RandomForestRegressor(n_estimators=50, random_state=42),  # Reduced from 100
+                "Gradient Boosting": GradientBoostingRegressor(n_estimators=50, random_state=42),  # Reduced from 100
+                "SVR": SVR(kernel='rbf', C=10, gamma='scale')  # Reduced complexity
+            }
+            
+            results = {}
+            
+            # Train each model
+            for name, model in models.items():
+                st.write(f"📈 Training {name}...")
+                
+                # Train model
+                model.fit(X_train, y_train)
+                
+                # Make predictions
+                y_pred = model.predict(X_test)
+                
+                # Calculate metrics
+                mae = mean_absolute_error(y_test, y_pred)
+                mse = mean_squared_error(y_test, y_pred)
+                rmse = np.sqrt(mse)
+                r2 = r2_score(y_test, y_pred)
+                
+                # Cross-validation score (reduced folds for speed)
+                cv_scores = cross_val_score(model, X, y, cv=3, scoring='r2')  # Reduced from 5 to 3
+                
+                results[name] = {
+                    "model": model,
+                    "mae": mae,
+                    "mse": mse,
+                    "rmse": rmse,
+                    "r2": r2,
+                    "cv_mean": cv_scores.mean(),
+                    "cv_std": cv_scores.std()
+                }
+            
+            # Save models
+            os.makedirs("models", exist_ok=True)
+            
+            for name, result in results.items():
+                filename = f"models/{name.lower().replace(' ', '_')}.pkl"
+                joblib.dump(result["model"], filename)
+                st.write(f"✅ Saved: {filename}")
+            
+            # Save results summary
+            results_summary = {}
+            for name, result in results.items():
+                results_summary[name] = {
+                    "MAE": round(result["mae"], 2),
+                    "RMSE": round(result["rmse"], 2),
+                    "R²": round(result["r2"], 3),
+                    "CV R²": f"{result['cv_mean']:.3f} ± {result['cv_std']:.3f}"
+                }
+            
+            # Save as CSV
+            summary_df = pd.DataFrame(results_summary).T
+            summary_df.to_csv("models/model_comparison.csv")
+            st.write("✅ Saved: models/model_comparison.csv")
+            
+            return True
+            
+        except Exception as e:
+            st.error(f"❌ Error training models: {e}")
+            return False
+    
+    # Call cached training function
+    with st.spinner("🚀 Training models... This may take a few minutes (cached for future use)..."):
+        success = train_models_cached()
+        
+    if success:
+        st.success("🎉 Models trained and saved successfully!")
+        # Update model files list
+        model_files = list(models_dir.glob("*.pkl"))
+    else:
+        st.info("💡 Please check your data files or run 'py train_models.py' in PowerShell locally.")
+        st.stop()
 
 # Load model comparison results
 comparison_file = models_dir / "model_comparison.csv"
@@ -64,7 +156,7 @@ if comparison_file.exists():
     comparison_df = pd.read_csv(comparison_file, index_col=0)
     st.success("✅ Model comparison data loaded!")
 else:
-    st.error("❌ Model comparison file not found. Please run the training script first.")
+    st.error("❌ Model comparison file not found. Please train models first.")
     st.stop()
 
 # Page Layout
@@ -330,3 +422,6 @@ st.success(f"""
 
 **Next Steps**: Use the Prediction page to make actual calorie predictions with your chosen model!
 """)
+
+st.markdown("---")
+st.info("💡 **Note**: Models are automatically trained when not found. For local development, you can still use 'py train_models.py' in PowerShell.")
