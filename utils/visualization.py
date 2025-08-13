@@ -4,10 +4,16 @@ from typing import Tuple
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import streamlit as st
+
+# Try to import plotly with fallback
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 
 def corr_heatmap(df: pd.DataFrame, figsize: Tuple[int, int] = (8, 6)) -> None:
@@ -19,6 +25,12 @@ def corr_heatmap(df: pd.DataFrame, figsize: Tuple[int, int] = (8, 6)) -> None:
 
 def scatter_matrix_plot(df: pd.DataFrame) -> None:
     """Enhanced interactive scatter matrix using plotly for better clarity."""
+    if not PLOTLY_AVAILABLE:
+        st.error("⚠️ Plotly not available. Please install with: pip install plotly")
+        st.info("Showing basic correlation heatmap instead...")
+        corr_heatmap(df)
+        return
+    
     # Select only numeric columns and handle the data properly
     numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
     

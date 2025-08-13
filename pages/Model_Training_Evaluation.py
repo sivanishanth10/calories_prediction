@@ -3,9 +3,17 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+
+# Try to import plotly with fallback
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    st.error("⚠️ Plotly not available. Please install with: pip install plotly")
+    PLOTLY_AVAILABLE = False
+
 import joblib
 import os
 from pathlib import Path
@@ -13,6 +21,24 @@ from utils.data_loader import load_raw, merge_datasets
 
 st.set_page_config(page_title="Model Evaluation", layout="wide")
 st.title("2 — Model Evaluation & Analysis")
+
+# Check if plotly is available
+if not PLOTLY_AVAILABLE:
+    st.warning("""
+    ## ⚠️ Plotly Not Available
+    
+    This page requires Plotly for visualizations. Please:
+    
+    1. **Install Plotly**: `pip install plotly`
+    2. **Restart the app**
+    3. **Check requirements.txt** includes plotly
+    
+    For now, showing basic information only.
+    """)
+    
+    # Show basic info without plots
+    st.info("Basic model evaluation information will be shown here once Plotly is installed.")
+    st.stop()
 
 # Check for trained models
 models_dir = Path("models")

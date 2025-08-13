@@ -3,9 +3,17 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+
+# Try to import plotly with fallback
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    st.error("⚠️ Plotly not available. Please install with: pip install plotly")
+    PLOTLY_AVAILABLE = False
+
 import joblib
 import os
 from pathlib import Path
@@ -13,6 +21,24 @@ from utils.data_loader import load_raw, merge_datasets
 
 st.set_page_config(page_title="Calorie Prediction", layout="wide")
 st.title("4 — Calorie Burn Prediction")
+
+# Check if plotly is available
+if not PLOTLY_AVAILABLE:
+    st.warning("""
+    ## ⚠️ Plotly Not Available
+    
+    This page requires Plotly for visualizations. Please:
+    
+    1. **Install Plotly**: `pip install plotly`
+    2. **Restart the app**
+    3. **Check requirements.txt** includes plotly
+    
+    For now, showing basic prediction interface only.
+    """)
+    
+    # Show basic prediction interface without plots
+    st.info("Basic prediction interface will be shown here once Plotly is installed.")
+    st.stop()
 
 # Try to load existing model
 MODEL_PATH = Path("models/calorie_model.pkl")
